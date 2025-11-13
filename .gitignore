@@ -1,0 +1,11 @@
+# Browser session data
+.browser-data/
+
+# Downloaded spreads
+spreads/
+
+# Node modules
+node_modules/
+
+# Output PDFs
+../*.pdf

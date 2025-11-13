@@ -1,0 +1,20 @@
+{
+  "name": "nt2schoolcollectie-downloader",
+  "version": "1.0.0",
+  "description": "Automated script to download books from NT2 School Collectie using Playwright",
+  "main": "download-book-automated.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["nt2", "book-downloader", "playwright", "automation"],
+  "author": "bubenkoff",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bubenkoff/nt2schoolcollectie-downloader.git"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "playwright": "^1.56.1"
+  }
+}
