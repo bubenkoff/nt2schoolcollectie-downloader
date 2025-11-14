@@ -3,14 +3,20 @@ const fs = require('fs');
 const path = require('path');
 const { PDFDocument } = require('pdf-lib');
 
-// Get book URL from command line argument
-const BOOK_URL = process.argv[2];
-const PAGE_LIMIT = process.argv[3] ? parseInt(process.argv[3], 10) : null;
+// Parse command line arguments
+const args = process.argv.slice(2);
+const flags = args.filter(arg => arg.startsWith('--'));
+const positional = args.filter(arg => !arg.startsWith('--'));
+
+const CLEAR_CACHE = flags.includes('--clear-cache');
+const BOOK_URL = positional[0];
+const PAGE_LIMIT = positional[1] ? parseInt(positional[1], 10) : null;
 
 if (!BOOK_URL) {
-  console.error('Usage: node download-book-automated.js <book-url> [page-limit]');
+  console.error('Usage: node download-book-automated.js <book-url> [page-limit] [--clear-cache]');
   console.error('Example: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609');
   console.error('Example with limit: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 10');
+  console.error('Example with cache clear: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 --clear-cache');
   process.exit(1);
 }
 
@@ -56,6 +62,18 @@ async function waitForUserLogin(page) {
 async function downloadAllSpreads() {
   // Use persistent context to save login session
   const userDataDir = path.join(__dirname, '.browser-data');
+
+  // Clear cache if requested
+  if (CLEAR_CACHE) {
+    console.log('Clearing browser cache...');
+    if (fs.existsSync(userDataDir)) {
+      fs.rmSync(userDataDir, { recursive: true, force: true });
+      console.log('Cache cleared successfully.\n');
+    } else {
+      console.log('No cache to clear.\n');
+    }
+  }
+
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
     channel: 'chrome',

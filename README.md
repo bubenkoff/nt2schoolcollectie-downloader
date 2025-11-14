@@ -54,6 +54,24 @@ Example (download only first 10 pages):
 node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 10
 ```
 
+### Clear browser cache:
+
+Use the `--clear-cache` flag to delete saved login session and browser data:
+
+```bash
+node download-book-automated.js <book-url> --clear-cache
+```
+
+Example:
+```bash
+node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 --clear-cache
+```
+
+This is useful when:
+- You want to log in with a different account
+- Troubleshooting login issues
+- Starting fresh after errors
+
 ## How it works
 
 1. Opens browser with persistent profile (saves login session in `.browser-data/`)
@@ -88,7 +106,7 @@ The script automatically skips already downloaded spreads. If interrupted, simpl
 If you're prompted to login every time:
 
 1. Make sure the `.browser-data/` directory exists and has proper permissions
-2. Try deleting `.browser-data/` and logging in again: `rm -rf .browser-data/`
+2. Try clearing the cache and logging in again: `node download-book-automated.js <book-url> --clear-cache`
 3. Ensure Chrome is properly installed (the script uses Chrome, not Chromium)
 
 ### Login detection issues
