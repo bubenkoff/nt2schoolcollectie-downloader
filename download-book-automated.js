@@ -9,14 +9,16 @@ const flags = args.filter(arg => arg.startsWith('--'));
 const positional = args.filter(arg => !arg.startsWith('--'));
 
 const CLEAR_CACHE = flags.includes('--clear-cache');
+const ISOLATED = flags.includes('--isolated');
 const BOOK_URL = positional[0];
 const PAGE_LIMIT = positional[1] ? parseInt(positional[1], 10) : null;
 
 if (!BOOK_URL) {
-  console.error('Usage: node download-book-automated.js <book-url> [page-limit] [--clear-cache]');
+  console.error('Usage: node download-book-automated.js <book-url> [page-limit] [--clear-cache] [--isolated]');
   console.error('Example: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609');
   console.error('Example with limit: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 10');
   console.error('Example with cache clear: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 --clear-cache');
+  console.error('Example with isolated profile: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 --isolated');
   process.exit(1);
 }
 
@@ -61,7 +63,14 @@ async function waitForUserLogin(page) {
 
 async function downloadAllSpreads() {
   // Use persistent context to save login session
-  const userDataDir = path.join(__dirname, '.browser-data');
+  // Use book-specific directory if isolated mode is enabled for parallel downloads
+  const userDataDir = ISOLATED
+    ? path.join(__dirname, `.browser-data-${BOOK_ID}`)
+    : path.join(__dirname, '.browser-data');
+
+  if (ISOLATED) {
+    console.log(`Using isolated browser profile for book ${BOOK_ID}`);
+  }
 
   // Clear cache if requested
   if (CLEAR_CACHE) {
