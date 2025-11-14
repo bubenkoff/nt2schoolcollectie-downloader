@@ -367,8 +367,14 @@ async function downloadBook(bookUrl, pageLimit = null) {
   async function mergePDFs() {
     console.log('\nMerging all spreads into single PDF...');
 
+    // Create output directory if it doesn't exist
+    const outputFolder = path.join(__dirname, 'output');
+    if (!fs.existsSync(outputFolder)) {
+      fs.mkdirSync(outputFolder, { recursive: true });
+    }
+
     const outputFilename = `${bookTitle || bookId}.pdf`;
-    const outputPath = path.join(__dirname, '..', outputFilename);
+    const outputPath = path.join(outputFolder, outputFilename);
     const mergedPdf = await PDFDocument.create();
 
     const totalSpreads = Math.ceil(totalPages / PAGES_PER_SPREAD);

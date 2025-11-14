@@ -9,4 +9,4 @@ spreads/
 node_modules/
 
 # Output PDFs
-../*.pdf
+output/

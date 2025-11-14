@@ -107,7 +107,7 @@ This is useful when:
 4. Detects book title and total pages automatically
 5. Downloads each 2-page spread as PDF
 6. Merges all spreads into single PDF
-7. Output saved to `../[book-title].pdf`
+7. Output saved to `output/[book-title].pdf`
 
 **Note**:
 - Login is saved in `.browser-data/` directory
@@ -117,8 +117,8 @@ This is useful when:
 
 ## File Structure
 
-- `spreads/[book-id]/` - Individual spread PDFs
-- `../[book-title].pdf` - Final merged book
+- `spreads/[book-id]/` - Individual spread PDFs (intermediate files)
+- `output/[book-title].pdf` - Final merged book PDFs
 
 ## Resume Downloads
 
