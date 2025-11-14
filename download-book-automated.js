@@ -217,7 +217,9 @@ async function downloadBook(bookUrl, pageLimit = null) {
   });
 
   if (bookInfo.title) {
-    bookTitle = bookInfo.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    // Sanitize title for filesystem: only remove truly problematic characters
+    // Keep spaces, capitalization, and most punctuation for readability
+    bookTitle = bookInfo.title.replace(/[\/\\:*?"<>|]/g, '-').trim();
     console.log(`Book title: ${bookInfo.title}`);
   } else {
     bookTitle = bookId;
