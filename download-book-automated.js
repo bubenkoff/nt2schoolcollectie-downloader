@@ -9,36 +9,34 @@ const flags = args.filter(arg => arg.startsWith('--'));
 const positional = args.filter(arg => !arg.startsWith('--'));
 
 const CLEAR_CACHE = flags.includes('--clear-cache');
-const ISOLATED = flags.includes('--isolated');
-const BOOK_URL = positional[0];
-const PAGE_LIMIT = positional[1] ? parseInt(positional[1], 10) : null;
+const PARALLEL = flags.includes('--parallel');
 
-if (!BOOK_URL) {
-  console.error('Usage: node download-book-automated.js <book-url> [page-limit] [--clear-cache] [--isolated]');
-  console.error('Example: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609');
-  console.error('Example with limit: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 10');
-  console.error('Example with cache clear: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 --clear-cache');
-  console.error('Example with isolated profile: node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 --isolated');
+// Check if first positional argument is a number (page limit for single book)
+const hasPageLimit = positional.length >= 2 && !isNaN(parseInt(positional[1], 10)) && !positional[1].includes('/');
+
+// Extract book URLs and page limit
+const BOOK_URLS = hasPageLimit ? [positional[0]] : positional.filter(arg => arg.includes('/'));
+const PAGE_LIMIT = hasPageLimit ? parseInt(positional[1], 10) : null;
+
+if (BOOK_URLS.length === 0) {
+  console.error('Usage: node download-book-automated.js <book-url...> [page-limit] [--clear-cache] [--parallel]');
+  console.error('');
+  console.error('Single book:');
+  console.error('  node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609');
+  console.error('  node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 10');
+  console.error('');
+  console.error('Multiple books (sequential):');
+  console.error('  node download-book-automated.js <url1> <url2> <url3>');
+  console.error('');
+  console.error('Multiple books (parallel):');
+  console.error('  node download-book-automated.js <url1> <url2> <url3> --parallel');
+  console.error('');
+  console.error('Clear cache:');
+  console.error('  node download-book-automated.js <url> --clear-cache');
   process.exit(1);
 }
 
-// Extract book ID from URL
-const bookIdMatch = BOOK_URL.match(/\/boek\/(\d+)/);
-if (!bookIdMatch) {
-  console.error('Invalid book URL. Must contain /boek/[ISBN]');
-  process.exit(1);
-}
-const BOOK_ID = bookIdMatch[1];
-
-let TOTAL_PAGES = null; // Will be detected from the page
-let BOOK_TITLE = null; // Will be detected from the page
 const PAGES_PER_SPREAD = 2;
-const OUTPUT_DIR = path.join(__dirname, 'spreads', BOOK_ID);
-
-// Create output directory
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-}
 
 async function waitForUserLogin(page) {
   console.log('\n==========================================================');
@@ -61,15 +59,33 @@ async function waitForUserLogin(page) {
   console.log('Continuing with download...\n');
 }
 
-async function downloadAllSpreads() {
+async function downloadBook(bookUrl, pageLimit = null) {
+  // Extract book ID from URL
+  const bookIdMatch = bookUrl.match(/\/boek\/(\d+)/);
+  if (!bookIdMatch) {
+    console.error(`Invalid book URL: ${bookUrl}. Must contain /boek/[ISBN]`);
+    return;
+  }
+  const bookId = bookIdMatch[1];
+
+  let totalPages = null; // Will be detected from the page
+  let bookTitle = null; // Will be detected from the page
+  const outputDir = path.join(__dirname, 'spreads', bookId);
+
+  // Create output directory
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
   // Use persistent context to save login session
-  // Use book-specific directory if isolated mode is enabled for parallel downloads
-  const userDataDir = ISOLATED
-    ? path.join(__dirname, `.browser-data-${BOOK_ID}`)
+  // Use book-specific directory if downloading multiple books
+  const useIsolated = BOOK_URLS.length > 1;
+  const userDataDir = useIsolated
+    ? path.join(__dirname, `.browser-data-${bookId}`)
     : path.join(__dirname, '.browser-data');
 
-  if (ISOLATED) {
-    console.log(`Using isolated browser profile for book ${BOOK_ID}`);
+  if (useIsolated) {
+    console.log(`\n[Book ${bookId}] Using isolated browser profile`);
   }
 
   // Clear cache if requested
@@ -94,8 +110,8 @@ async function downloadAllSpreads() {
   const pages = context.pages();
   const page = pages.length > 0 ? pages[0] : await context.newPage();
 
-  console.log(`Navigating to book: ${BOOK_URL}`);
-  await page.goto(BOOK_URL, { waitUntil: 'networkidle' });
+  console.log(`Navigating to book: ${bookUrl}`);
+  await page.goto(bookUrl, { waitUntil: 'networkidle' });
 
   // Wait for page to load
   await page.waitForTimeout(5000);
@@ -122,8 +138,8 @@ async function downloadAllSpreads() {
     await waitForUserLogin(page);
 
     // Navigate to book again after login
-    console.log(`Navigating to book: ${BOOK_URL}`);
-    await page.goto(BOOK_URL, { waitUntil: 'networkidle' });
+    console.log(`Navigating to book: ${bookUrl}`);
+    await page.goto(bookUrl, { waitUntil: 'networkidle' });
     await page.waitForTimeout(5000);
   } else {
     console.log('Already logged in! Continuing...\n');
@@ -201,16 +217,16 @@ async function downloadAllSpreads() {
   });
 
   if (bookInfo.title) {
-    BOOK_TITLE = bookInfo.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    bookTitle = bookInfo.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
     console.log(`Book title: ${bookInfo.title}`);
   } else {
-    BOOK_TITLE = BOOK_ID;
-    console.log(`Could not detect title, using book ID: ${BOOK_ID}`);
+    bookTitle = bookId;
+    console.log(`Could not detect title, using book ID: ${bookId}`);
   }
 
   if (bookInfo.totalPages) {
-    TOTAL_PAGES = parseInt(bookInfo.totalPages, 10);
-    console.log(`Detected ${TOTAL_PAGES} total pages`);
+    totalPages = parseInt(bookInfo.totalPages, 10);
+    console.log(`Detected ${totalPages} total pages`);
   } else {
     console.log('Could not auto-detect total pages.');
 
@@ -220,7 +236,7 @@ async function downloadAllSpreads() {
       output: process.stdout
     });
 
-    TOTAL_PAGES = await new Promise((resolve) => {
+    totalPages = await new Promise((resolve) => {
       readline.question('Please enter the total number of pages manually: ', (answer) => {
         readline.close();
         const pages = parseInt(answer, 10);
@@ -232,17 +248,17 @@ async function downloadAllSpreads() {
       });
     });
 
-    console.log(`Using ${TOTAL_PAGES} pages`);
+    console.log(`Using ${totalPages} pages`);
   }
 
   // Apply page limit if provided
-  if (PAGE_LIMIT) {
-    console.log(`Limiting to ${PAGE_LIMIT} pages for testing`);
-    TOTAL_PAGES = Math.min(TOTAL_PAGES, PAGE_LIMIT);
+  if (pageLimit) {
+    console.log(`Limiting to ${pageLimit} pages for testing`);
+    totalPages = Math.min(totalPages, pageLimit);
   }
 
-  // Now calculate totalSpreads with the detected TOTAL_PAGES
-  const totalSpreads = Math.ceil(TOTAL_PAGES / PAGES_PER_SPREAD);
+  // Now calculate totalSpreads with the detected totalPages
+  const totalSpreads = Math.ceil(totalPages / PAGES_PER_SPREAD);
   console.log(`Total spreads needed: ${totalSpreads}`);
 
   // Check if all spreads already exist
@@ -250,7 +266,7 @@ async function downloadAllSpreads() {
   let existingSpreadCount = 0;
   for (let i = 0; i < totalSpreads; i++) {
     const spreadIndex = String(i).padStart(3, '0');
-    const outputPath = path.join(OUTPUT_DIR, `spread-${spreadIndex}.pdf`);
+    const outputPath = path.join(outputDir, `spread-${spreadIndex}.pdf`);
     if (!fs.existsSync(outputPath)) {
       missingSpreadIndexes.push(i);
     } else {
@@ -274,7 +290,7 @@ async function downloadAllSpreads() {
   for (let i = 0; i < totalSpreads; i++) {
     const pageNum = i * PAGES_PER_SPREAD;
     const spreadIndex = String(i).padStart(3, '0');
-    const outputPath = path.join(OUTPUT_DIR, `spread-${spreadIndex}.pdf`);
+    const outputPath = path.join(outputDir, `spread-${spreadIndex}.pdf`);
 
     // Skip if already downloaded
     if (fs.existsSync(outputPath)) {
@@ -285,7 +301,7 @@ async function downloadAllSpreads() {
     console.log(`[${i + 1}/${totalSpreads}] Processing spread ${spreadIndex} (pages ${pageNum}-${pageNum + 1})...`);
 
     // Navigate to the page
-    await page.goto(`${BOOK_URL}#${pageNum}`);
+    await page.goto(`${bookUrl}#${pageNum}`);
     await page.waitForTimeout(4000); // Wait for pages to load
 
     // Set up listener for new page (PDF)
@@ -341,26 +357,25 @@ async function downloadAllSpreads() {
   }
 
   console.log(`\n✓ Downloaded ${totalSpreads} spreads!`);
-  console.log(`Spreads saved to: ${OUTPUT_DIR}`);
+  console.log(`Spreads saved to: ${outputDir}`);
 
   await context.close();
 
   // Merge all PDFs
   await mergePDFs();
-}
 
-async function mergePDFs() {
-  console.log('\nMerging all spreads into single PDF...');
+  async function mergePDFs() {
+    console.log('\nMerging all spreads into single PDF...');
 
-  const outputFilename = `${BOOK_TITLE || BOOK_ID}.pdf`;
-  const outputPath = path.join(__dirname, '..', outputFilename);
-  const mergedPdf = await PDFDocument.create();
+    const outputFilename = `${bookTitle || bookId}.pdf`;
+    const outputPath = path.join(__dirname, '..', outputFilename);
+    const mergedPdf = await PDFDocument.create();
 
-  const totalSpreads = Math.ceil(TOTAL_PAGES / PAGES_PER_SPREAD);
+    const totalSpreads = Math.ceil(totalPages / PAGES_PER_SPREAD);
 
   for (let i = 0; i < totalSpreads; i++) {
     const spreadIndex = String(i).padStart(3, '0');
-    const spreadPath = path.join(OUTPUT_DIR, `spread-${spreadIndex}.pdf`);
+    const spreadPath = path.join(outputDir, `spread-${spreadIndex}.pdf`);
 
     if (!fs.existsSync(spreadPath)) {
       console.log(`Warning: Missing ${spreadPath}`);
@@ -388,10 +403,29 @@ async function mergePDFs() {
   const mergedPdfBytes = await mergedPdf.save();
   fs.writeFileSync(outputPath, mergedPdfBytes);
 
-  const fileSizeMB = (fs.statSync(outputPath).size / (1024 * 1024)).toFixed(2);
-  console.log(`\n✓ Complete book saved to: ${outputPath}`);
-  console.log(`  File size: ${fileSizeMB} MB`);
-  console.log(`  Total pages: ${mergedPdf.getPageCount()}`);
+    const fileSizeMB = (fs.statSync(outputPath).size / (1024 * 1024)).toFixed(2);
+    console.log(`\n✓ Complete book saved to: ${outputPath}`);
+    console.log(`  File size: ${fileSizeMB} MB`);
+    console.log(`  Total pages: ${mergedPdf.getPageCount()}`);
+  }
 }
 
-downloadAllSpreads().catch(console.error);
+// Main execution
+async function main() {
+  console.log(`Starting download of ${BOOK_URLS.length} book(s)...\n`);
+
+  if (PARALLEL && BOOK_URLS.length > 1) {
+    // Download books in parallel
+    console.log('Downloading books in parallel...\n');
+    await Promise.all(BOOK_URLS.map(url => downloadBook(url, PAGE_LIMIT)));
+  } else {
+    // Download books sequentially
+    for (const url of BOOK_URLS) {
+      await downloadBook(url, PAGE_LIMIT);
+    }
+  }
+
+  console.log('\n✓ All books downloaded successfully!');
+}
+
+main().catch(console.error);

@@ -54,6 +54,31 @@ Example (download only first 10 pages):
 node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 10
 ```
 
+### Multiple books:
+
+Download multiple books by providing multiple URLs:
+
+```bash
+node download-book-automated.js <url1> <url2> <url3>
+```
+
+Example (download two books sequentially):
+```bash
+node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 https://www.nt2schoolcollectie.nl/boek/9789046908426
+```
+
+Example (download two books in parallel with `--parallel` flag):
+```bash
+node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 https://www.nt2schoolcollectie.nl/boek/9789046908426 --parallel
+```
+
+**How it works:**
+- Each book uses its own isolated browser profile: `.browser-data-[ISBN]/`
+- You'll need to log in separately for each book (only once per book)
+- Sequential mode downloads one after another (default)
+- Parallel mode downloads simultaneously (use `--parallel` flag)
+- Single book mode uses shared `.browser-data/` profile
+
 ### Clear browser cache:
 
 Use the `--clear-cache` flag to delete saved login session and browser data:
@@ -71,27 +96,6 @@ This is useful when:
 - You want to log in with a different account
 - Troubleshooting login issues
 - Starting fresh after errors
-
-### Parallel downloads:
-
-Use the `--isolated` flag to download multiple books simultaneously without conflicts:
-
-```bash
-node download-book-automated.js <book-url1> --isolated &
-node download-book-automated.js <book-url2> --isolated &
-```
-
-Example (download two books in parallel):
-```bash
-node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046905609 --isolated &
-node download-book-automated.js https://www.nt2schoolcollectie.nl/boek/9789046908426 --isolated &
-```
-
-**How it works:**
-- Each book uses its own browser profile: `.browser-data-[ISBN]/`
-- You'll need to log in separately for each book
-- No interference between concurrent downloads
-- Default (without flag) uses shared `.browser-data/` - use for sequential downloads
 
 ## How it works
 
